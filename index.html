@@ -45,6 +45,8 @@ body.biglist #map{height:24dvh}
 .tag{display:inline-flex;align-items:center;gap:6px}
 .tag i{width:9px;height:9px;border-radius:50%;background:var(--c)}
 .dist{white-space:nowrap;color:var(--mute);font-size:14px}
+.badge{display:inline-block;font-size:12px;font-weight:600;border-radius:6px;padding:2px 7px;margin-left:6px;vertical-align:2px}.b-must{background:var(--red);color:#fff}.b-tried{background:rgba(67,185,127,.18);color:var(--green)}
+.checks{display:flex;gap:18px;margin-top:14px}.checks label{display:flex;align-items:center;gap:8px;margin:0;color:var(--ink);font-size:15px}.checks input{width:22px;height:22px;accent-color:var(--red)}
 .offer{margin-top:10px;border:1.5px dashed var(--line);border-radius:12px;padding:8px 10px;font-size:15px}
 .offer.today{border-color:var(--green);background:rgba(67,185,127,.09)}
 .offer.expired{opacity:.55;text-decoration:line-through}
@@ -117,6 +119,7 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
   <label for="fAddr">Address</label><input id="fAddr" placeholder="Street, city">
   <div class="acts"><button type="button" class="btn" id="findBtn">Find address</button><button type="button" class="btn" id="hereBtn">I'm here now</button><button type="button" class="btn" id="pickBtn">Pick on map</button></div>
   <div class="loc" id="locMsg"></div>
+  <div class="checks"><label><input type="checkbox" id="fMust"> Must try</label><label><input type="checkbox" id="fTried"> Tried it</label></div>
   <label for="fOffer">Offer / deal</label><input id="fOffer" placeholder="e.g. 2-for-1 pizza, 50¢ wings">
   <label>Offer days (none selected = every day)</label>
   <div class="days" id="fDays"></div>
@@ -140,6 +143,7 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
     <button class="btn" id="mImport">Paste a list of restaurants</button>
     <button class="btn" id="mLocate">Show where I am</button>
     <button class="btn" id="mFit">Zoom to all my places</button>
+    <button class="btn" id="mStarter">Reload my Calgary list</button>
     <button class="btn" id="mExport">Save a backup file</button>
     <button class="btn" id="mCopy">Copy backup text</button>
     <button class="btn" id="mRestore">Restore from backup</button>
@@ -156,14 +160,15 @@ const KEY='eatsmap.v1', DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let R=[], me=null, editing=null, draft=null, picking=false, hot=null;
-const F={types:new Set(),deal:'',q:''};
+const F={types:new Set(),deal:'',q:'',mark:''};
 try{R=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){R=[]}
 try{const s=JSON.parse(localStorage.getItem(KEY+'.ui')||'{}');if(s.sort)$('#sort').value=s.sort}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(R))}catch(e){toast('Could not save on this device')}};
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const norm=t=>(t||'Other').trim().replace(/\s+/g,' ').replace(/^./,c=>c.toUpperCase());
 function hue(t){let h=0;for(const c of t.toLowerCase())h=(h*31+c.charCodeAt(0))%360;return h}
-const col=t=>`hsl(${hue(t)} 62% 48%)`;
+const PAL=['#e8452f','#2f8fe0','#2fae6b','#e0a12f','#9b51e0','#e0548f','#18a8a8','#8a6d3b','#5c6bc0','#c0ca33','#ff7043','#26a69a','#ab47bc','#78909c'];let ORDER=[];
+const col=t=>{const i=ORDER.indexOf(t);return i>=0?PAL[i%PAL.length]:`hsl(${hue(t)} 62% 48%)`};
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>t.hidden=true,2800)}
 
 function today(){const d=new Date();return{dow:d.getDay(),iso:d.toLocaleDateString('en-CA')}}
@@ -194,6 +199,9 @@ function visible(){
     const o=offerState(r);
     if(F.deal==='any'&&!(o&&o.cls!=='expired'))return false;
     if(F.deal==='today'&&!(o&&o.live))return false;
+    if(F.mark==='must'&&!r.must)return false;
+    if(F.mark==='new'&&r.tried)return false;
+    if(F.mark==='tried'&&!r.tried)return false;
     if(q&&!`${r.name} ${r.type} ${r.notes||''} ${r.offer||''} ${r.address||''}`.toLowerCase().includes(q))return false;
     return true;
   });
@@ -201,13 +209,16 @@ function visible(){
 function dirUrl(r){return 'https://www.google.com/maps/dir/?api=1&destination='+(hasLoc(r)?r.lat+','+r.lng:encodeURIComponent(r.name+' '+(r.address||'')))}
 
 function renderChips(){
-  const types=[...new Set(R.map(r=>norm(r.type)))].sort();
+  const cnt={};R.forEach(r=>{const t=norm(r.type);cnt[t]=(cnt[t]||0)+1});const types=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x]||x.localeCompare(y));ORDER=types;
   for(const t of [...F.types])if(!types.includes(t))F.types.delete(t);
   $('#types').innerHTML=types.map(t=>`<option value="${esc(t)}">`).join('');
   const nToday=R.filter(r=>offerState(r)?.live).length;
   $('#chips').innerHTML=
     `<button class="chip deal" data-deal="today" aria-pressed="${F.deal==='today'}">Deals today (${nToday})</button>`+
     `<button class="chip deal" data-deal="any" aria-pressed="${F.deal==='any'}">Any offer</button>`+
+    `<button class="chip" data-mark="must" aria-pressed="${F.mark==='must'}">Must try</button>`+
+    `<button class="chip" data-mark="new" aria-pressed="${F.mark==='new'}">Not tried yet</button>`+
+    `<button class="chip" data-mark="tried" aria-pressed="${F.mark==='tried'}">Tried</button>`+
     `<button class="chip" data-all aria-pressed="${!F.types.size}">All food</button>`+
     types.map(t=>`<button class="chip" data-type="${esc(t)}" aria-pressed="${F.types.has(t)}" style="--c:${col(t)}"><i></i>${esc(t)}</button>`).join('');
 }
@@ -224,7 +235,7 @@ function render(){
   for(const r of v){if(!hasLoc(r))continue;
     const t=norm(r.type),o=offerState(r);
     const m=L.marker([r.lat,r.lng],{icon:L.divIcon({className:'pin'+(o?.live?' deal':''),html:`<span style="--c:${col(t)}"><b>${esc(t[0])}</b></span>`,iconSize:[34,34],iconAnchor:[17,36],popupAnchor:[0,-34]})});
-    m.bindPopup(`<b>${esc(r.name)}</b><br>${esc(t)}${o?`<br><span style="color:${o.live?'var(--green)':'var(--mute)'}">${esc(r.offer)}</span>`:''}<br><a href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a>`);
+    m.bindPopup(`<b>${esc(r.name)}</b><br>${esc(t)}${r.must?' · Must try':''}${r.tried?' · Tried':''}${r.notes?'<br>'+esc(r.notes):''}${o?`<br><span style="color:${o.live?'var(--green)':'var(--mute)'}">${esc(r.offer)}</span>`:''}<br><a href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a>`);
     m.on('click',()=>focusCard(r.id));
     m.addTo(layer);markers[r.id]=m;}
   const L2=$('#list');
@@ -232,7 +243,7 @@ function render(){
   if(!v.length){L2.innerHTML=`<div class="empty"><p>Nothing matches these filters.</p><button class="btn" data-act="clear">Clear filters</button></div>`;return}
   L2.innerHTML=v.map(r=>{const t=norm(r.type),o=offerState(r);
     return `<article class="card${hot===r.id?' hot':''}" id="c-${r.id}">
-    <div class="row"><div><div class="name">${esc(r.name)}</div>
+    <div class="row"><div><div class="name">${esc(r.name)}${r.must?'<span class="badge b-must">Must try</span>':''}${r.tried?'<span class="badge b-tried">Tried</span>':''}</div>
     <div class="meta"><span class="tag" style="--c:${col(t)}"><i></i>${esc(t)}</span>${r.address?`<span>${esc(r.address)}</span>`:''}${!hasLoc(r)?'<span style="color:var(--amber)">Not on map yet</span>':''}</div></div>
     ${r._d!=null?`<span class="dist">${r._d<1?Math.round(r._d*1000)+' m':r._d.toFixed(1)+' km'}</span>`:''}</div>
     ${o?`<div class="offer ${o.cls}">${esc(r.offer)}<small>${esc(o.label)}</small></div>`:''}
@@ -248,13 +259,14 @@ function fit(){const pts=R.filter(hasLoc).map(r=>[r.lat,r.lng]);if(me)pts.push([
 
 /* list + chip events */
 $('#chips').addEventListener('click',e=>{const b=e.target.closest('.chip');if(!b)return;
-  if(b.dataset.deal)F.deal=F.deal===b.dataset.deal?'':b.dataset.deal;
+  if(b.dataset.mark)F.mark=F.mark===b.dataset.mark?'':b.dataset.mark;
+  else if(b.dataset.deal)F.deal=F.deal===b.dataset.deal?'':b.dataset.deal;
   else if('all' in b.dataset)F.types.clear();
   else{const t=b.dataset.type;F.types.has(t)?F.types.delete(t):F.types.add(t)}
   render()});
 $('#list').addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,r=R.find(x=>x.id===b.dataset.id);
   if(a==='add')openEdit();else if(a==='import')$('#imp').showModal();
-  else if(a==='clear'){F.types.clear();F.deal='';F.q='';$('#q').value='';render()}
+  else if(a==='clear'){F.types.clear();F.deal='';F.mark='';F.q='';$('#q').value='';render()}
   else if(a==='edit')openEdit(r);
   else if(a==='show'&&r){map.setView([r.lat,r.lng],16);markers[r.id]?.openPopup();focusCard(r.id)}});
 $('#q').addEventListener('input',e=>{F.q=e.target.value.trim();render()});
@@ -283,7 +295,7 @@ function showLoc(){const m=$('#locMsg');if(hasLoc(draft)){m.className='loc ok';m
 function openEdit(r){editing=r||null;draft={lat:r?.lat,lng:r?.lng};
   $('#editTitle').textContent=r?'Edit restaurant':'Add restaurant';$('#delBtn').hidden=!r;
   $('#fName').value=r?.name||'';$('#fType').value=r?.type||'';$('#fAddr').value=r?.address||'';$('#fOffer').value=r?.offer||'';
-  $('#fUntil').value=r?.until||'';$('#fPhone').value=r?.phone||'';$('#fWeb').value=r?.web||'';$('#fNotes').value=r?.notes||'';
+  $('#fUntil').value=r?.until||'';$('#fPhone').value=r?.phone||'';$('#fWeb').value=r?.web||'';$('#fNotes').value=r?.notes||'';$('#fMust').checked=!!r?.must;$('#fTried').checked=!!r?.tried;
   document.querySelectorAll('#fDays button').forEach(b=>b.setAttribute('aria-pressed',!!r?.days?.includes(+b.dataset.d)));
   showLoc();$('#edit').showModal()}
 $('#addBtn').addEventListener('click',()=>openEdit());
@@ -297,7 +309,7 @@ $('#hereBtn').addEventListener('click',()=>{const m=$('#locMsg');m.textContent='
 $('#pickBtn').addEventListener('click',()=>{$('#edit').close();picking=true;$('#picking').hidden=false;if(hasLoc(draft))map.setView([draft.lat,draft.lng],16)});
 $('#editForm').addEventListener('submit',async e=>{e.preventDefault();
   const rec={id:editing?.id||uid(),name:$('#fName').value.trim(),type:norm($('#fType').value),address:$('#fAddr').value.trim(),offer:$('#fOffer').value.trim(),
-    days:[...document.querySelectorAll('#fDays button[aria-pressed=true]')].map(b=>+b.dataset.d),until:$('#fUntil').value,phone:$('#fPhone').value.trim(),web:$('#fWeb').value.trim(),notes:$('#fNotes').value.trim(),lat:draft.lat,lng:draft.lng};
+    days:[...document.querySelectorAll('#fDays button[aria-pressed=true]')].map(b=>+b.dataset.d),until:$('#fUntil').value,phone:$('#fPhone').value.trim(),web:$('#fWeb').value.trim(),notes:$('#fNotes').value.trim(),must:$('#fMust').checked,tried:$('#fTried').checked,lat:draft.lat,lng:draft.lng};
   if(rec.web&&!/^https?:\/\//i.test(rec.web))rec.web='https://'+rec.web;
   if(!hasLoc(rec)&&rec.address){$('#saveBtn').textContent='Finding…';try{const g=await geocode(rec.address);if(g)Object.assign(rec,g)}catch(err){}$('#saveBtn').textContent='Save'}
   const i=R.findIndex(x=>x.id===rec.id);i>=0?R[i]=rec:R.push(rec);save();$('#edit').close();render();
@@ -334,7 +346,9 @@ $('#mRestore').addEventListener('click',()=>$('#restoreFile').click());
 $('#restoreFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d))throw 0;
   const ids=new Set(R.map(r=>r.id));d.forEach(r=>{if(r&&r.name&&!ids.has(r.id))R.push({...r,id:r.id||uid()})});save();render();fit();menu.close();toast('Backup restored')}catch(err){toast('That file is not an EatsMap backup')}e.target.value=''});
 
-render();fit();
+async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.starter'))return;const d=await(await fetch('starter.json',{cache:'no-store'})).json();const ids=new Set(R.map(r=>r.id));let n=0;d.forEach(r=>{if(!ids.has(r.id)){R.push(r);n++}});localStorage.setItem(KEY+'.starter','1');save();render();fit();if(n)toast(`Added ${n} places from your Calgary list`)}catch(e){}}
+$('#mStarter').addEventListener('click',()=>{menu.close();loadStarter(true)});
+render();fit();loadStarter(false);
 if(navigator.permissions)navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='granted')locate(!R.length)}).catch(()=>{});
 setInterval(render,10*60*1000); // refresh "deals today" across midnight
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
