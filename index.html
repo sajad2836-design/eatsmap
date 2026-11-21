@@ -34,6 +34,13 @@ h1 b{color:var(--red)}
 .locbtn svg{width:24px;height:24px}.locbtn.on{color:#1a73e8}
 .acc{fill:#3b8cff;fill-opacity:.12;stroke:#3b8cff;stroke-opacity:.4;stroke-width:1}
 .offer a{color:inherit;font-size:13px}
+.nearbar{display:flex;align-items:center;gap:8px;padding:8px 14px 0;font-size:14px}
+.nearbar span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.nearbar select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit;font-size:14px}
+.res{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:10px 12px;margin-top:8px;font:inherit;font-size:15px;cursor:pointer}
+.res small{display:block;color:var(--mute);font-size:13px}
+.nearpin{width:22px;height:22px;border-radius:50%;background:#111;border:4px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.ring{fill:#ec4a33;fill-opacity:.06;stroke:#ec4a33;stroke-width:2;stroke-dasharray:6 6}
 .chips{display:flex;gap:8px;overflow-x:auto;padding:0 14px 0 0;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:999px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:7px;min-height:38px}
@@ -109,6 +116,7 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
 </header>
 <div class="filters"><label class="tsel"><span class="sr">Food type</span><select id="typeSel" aria-label="Food type"></select></label><nav class="chips" id="chips"></nav></div>
 <div id="map"></div>
+<div class="nearbar" id="nearbar" hidden><span id="nearTxt"></span><select id="nearR" aria-label="Distance"><option value="1">1 km</option><option value="2">2 km</option><option value="3" selected>3 km</option><option value="5">5 km</option><option value="10">10 km</option><option value="0">Any distance</option></select><button class="btn ghost" id="nearClear" style="min-height:34px;padding:4px 10px">Clear</button></div>
 <div class="listhead">
   <span id="count"></span>
   <span><select id="sort" aria-label="Sort"><option value="dist">Nearest</option><option value="deal">Deals first</option><option value="name">A–Z</option></select>
@@ -145,6 +153,14 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
   <div class="foot"><button class="btn" id="impClose">Close</button><button class="btn pri" id="impGo">Add to map</button></div>
 </div></dialog>
 
+<dialog id="near"><form class="dlg" id="nearForm">
+  <h2>Restaurants near an address</h2>
+  <label for="nearQ">Address, place or postal code</label>
+  <input id="nearQ" placeholder="e.g. 3625 Shaganappi Trail NW, Chinook Centre, T3J 4K3" autocomplete="street-address">
+  <div class="loc" id="nearMsg"></div>
+  <div id="nearRes"></div>
+  <div class="foot"><button type="button" class="btn" id="nearCancel">Cancel</button><button type="submit" class="btn pri">Search</button></div>
+</form></dialog>
 <dialog id="menu"><div class="dlg">
   <h2>Menu</h2>
   <div class="acts" style="flex-direction:column;align-items:stretch">
@@ -169,7 +185,7 @@ const KEY='eatsmap.v1', DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let R=[], me=null, editing=null, draft=null, picking=false, hot=null;
-const F={type:'',deal:'',q:'',mark:''};
+const F={type:'',deal:'',q:'',mark:''};let NEAR=null,nearMark=null,nearRing=null;
 try{R=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){R=[]}
 try{const s=JSON.parse(localStorage.getItem(KEY+'.ui')||'{}');if(s.sort)$('#sort').value=s.sort}catch(e){}
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(R))}catch(e){toast('Could not save on this device')}};
@@ -212,6 +228,7 @@ function visible(){
     if(F.mark==='must'&&!r.must)return false;
     if(F.mark==='new'&&r.tried)return false;
     if(F.mark==='tried'&&!r.tried)return false;
+    if(NEAR&&NEAR.r){if(!hasLoc(r)||km(NEAR,r)>NEAR.r)return false}
     if(q&&!`${r.name} ${r.type} ${r.notes||''} ${r.offer||''} ${r.address||''}`.toLowerCase().includes(q))return false;
     return true;
   });
@@ -234,7 +251,8 @@ function renderChips(){
 function render(){
   renderChips();
   const v=visible(), sort=$('#sort').value;
-  v.forEach(r=>r._d=me&&hasLoc(r)?km(me,r):null);
+  const org=NEAR||me;v.forEach(r=>r._d=org&&hasLoc(r)?km(org,r):null);
+  $('#nearbar').hidden=!NEAR;if(NEAR)$('#nearTxt').textContent='Near: '+NEAR.label;
   v.sort((a,b)=>{
     if(sort==='deal'){const x=(offerState(b)?.live?2:offerState(b)&&offerState(b).cls!=='expired'?1:0)-(offerState(a)?.live?2:offerState(a)&&offerState(a).cls!=='expired'?1:0);if(x)return x}
     if(sort!=='name'&&a._d!=null&&b._d!=null)return a._d-b._d;
@@ -293,6 +311,28 @@ function locate(center){if(!navigator.geolocation){toast('Location not available
   navigator.geolocation.getCurrentPosition(p=>{lastRender=0;placeMe(p);if(center)map.setView([me.lat,me.lng],15);document.querySelector('.locbtn')?.classList.add('on');
     if(watchId==null)watchId=navigator.geolocation.watchPosition(placeMe,()=>{},{enableHighAccuracy:true,maximumAge:10000})},
   ()=>toast('Location is off. Allow location for this site in Chrome settings.'),{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
+const NearCtl=L.Control.extend({options:{position:'topleft'},onAdd(){const b=L.DomUtil.create('button','locbtn');b.type='button';b.style.margin='10px 0 0 10px';b.setAttribute('aria-label','Find restaurants near an address');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>';L.DomEvent.disableClickPropagation(b);L.DomEvent.on(b,'click',openNear);return b}});
+new NearCtl().addTo(map);
+function openNear(){$('#nearMsg').textContent='';$('#nearRes').innerHTML='';$('#near').showModal();setTimeout(()=>$('#nearQ').focus(),50)}
+let nearHits=[];
+$('#nearCancel').addEventListener('click',()=>$('#near').close());
+$('#nearForm').addEventListener('submit',async e=>{e.preventDefault();let q=$('#nearQ').value.trim();if(!q)return;
+  const m=$('#nearMsg');m.className='loc';m.textContent='Searching…';$('#nearRes').innerHTML='';
+  if(!/calgary|alberta|\bab\b|airdrie|chestermere|cochrane/i.test(q))q+=', Calgary, Alberta';
+  try{const j=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=ca&viewbox=-114.4,51.3,-113.8,50.8&q='+encodeURIComponent(q))).json();
+    nearHits=j.map(x=>({lat:+x.lat,lng:+x.lon,label:x.display_name.split(',').slice(0,3).join(',').trim(),full:x.display_name}));
+    if(!nearHits.length){m.className='loc bad';m.textContent='Not found. Try adding the street type (St, Ave, Dr) and quadrant (NW, SE…).';return}
+    if(nearHits.length===1){setNear(nearHits[0]);return}
+    m.textContent='Which one?';$('#nearRes').innerHTML=nearHits.map((h,i)=>`<button type="button" class="res" data-i="${i}">${esc(h.label)}<small>${esc(h.full)}</small></button>`).join('');
+  }catch(err){m.className='loc bad';m.textContent='No internet connection.'}});
+$('#nearRes').addEventListener('click',e=>{const b=e.target.closest('.res');if(b)setNear(nearHits[+b.dataset.i])});
+function drawNear(){if(nearMark){map.removeLayer(nearMark);nearMark=null}if(nearRing){map.removeLayer(nearRing);nearRing=null}if(!NEAR)return;
+  nearMark=L.marker([NEAR.lat,NEAR.lng],{icon:L.divIcon({className:'',html:'<div class="nearpin"></div>',iconSize:[22,22]}),zIndexOffset:900}).bindPopup(esc(NEAR.label)).addTo(map);
+  if(NEAR.r){nearRing=L.circle([NEAR.lat,NEAR.lng],{radius:NEAR.r*1000,className:'ring',interactive:false}).addTo(map);map.fitBounds(nearRing.getBounds(),{padding:[10,10]})}else map.setView([NEAR.lat,NEAR.lng],13)}
+function setNear(h){NEAR={lat:h.lat,lng:h.lng,label:h.label,r:+$('#nearR').value};$('#near').close();$('#sort').value='dist';drawNear();render();
+  const n=visible().length;toast(n?`${n} of your places within ${NEAR.r?NEAR.r+' km':'any distance'}`:`None of your places within ${NEAR.r} km. Try a bigger distance.`)}
+$('#nearR').addEventListener('change',()=>{if(!NEAR)return;NEAR.r=+$('#nearR').value;drawNear();render()});
+$('#nearClear').addEventListener('click',()=>{NEAR=null;drawNear();render();fit()});
 const LocCtl=L.Control.extend({options:{position:'bottomright'},onAdd(){const b=L.DomUtil.create('button','locbtn');b.type='button';b.setAttribute('aria-label','Show my location');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>';L.DomEvent.disableClickPropagation(b);L.DomEvent.on(b,'click',()=>locate(true));return b}});
 new LocCtl().addTo(map);
 map.on('dragstart',()=>document.querySelector('.locbtn')?.classList.remove('on'));
