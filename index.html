@@ -152,6 +152,7 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
     <button class="btn" id="mLocate">Show where I am</button>
     <button class="btn" id="mFit">Zoom to all my places</button>
     <button class="btn" id="mStarter">Reload my Calgary list</button>
+    <button class="btn" id="mReset">Start over: only the Calgary list</button>
     <button class="btn" id="mExport">Save a backup file</button>
     <button class="btn" id="mCopy">Copy backup text</button>
     <button class="btn" id="mRestore">Restore from backup</button>
@@ -363,6 +364,8 @@ $('#restoreFile').addEventListener('change',async e=>{const f=e.target.files[0];
   const ids=new Set(R.map(r=>r.id));d.forEach(r=>{if(r&&r.name&&!ids.has(r.id))R.push({...r,id:r.id||uid()})});save();render();fit();menu.close();toast('Backup restored')}catch(err){toast('That file is not an EatsMap backup')}e.target.value=''});
 
 async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.starter'))return;const d=await(await fetch('starter.json',{cache:'no-store'})).json();const ids=new Set(R.map(r=>r.id));let n=0;d.forEach(r=>{if(!ids.has(r.id)){R.push(r);n++}});localStorage.setItem(KEY+'.starter','1');save();render();fit();if(n)toast(`Added ${n} places from your Calgary list`)}catch(e){}}
+$('#mReset').addEventListener('click',async()=>{const x=$('#mReset');if(x.dataset.sure!=='1'){x.dataset.sure='1';x.textContent='Tap again: this removes everything else saved on this phone';setTimeout(()=>{x.dataset.sure='';x.textContent='Start over: only the Calgary list'},4000);return}
+  R=[];try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+'.starter')}catch(e){}menu.close();await loadStarter(true);await loadOffers();x.dataset.sure='';x.textContent='Start over: only the Calgary list';toast('Reset done: '+R.length+' places')});
 $('#mStarter').addEventListener('click',()=>{menu.close();loadStarter(true)});
 async function loadOffers(){try{const d=await(await fetch('offers.json',{cache:'no-store'})).json();let n=0;for(const r of R){const o=d[r.id];if(r.offerLocked)continue;if(o){if(r.offer!==o.offer||r.offerSrc!==o.src)n++;Object.assign(r,{offer:o.offer,days:o.days||[],until:o.until||'',onDate:o.onDate||'',offerSrc:o.src||'',offerChecked:o.checked||''})}else if(r.offerSrc){Object.assign(r,{offer:'',days:[],until:'',onDate:'',offerSrc:'',offerChecked:''})}}save();render();if(n)toast(`Offers updated (${n})`)}catch(e){}}
 render();fit();loadStarter(false).then(loadOffers);
