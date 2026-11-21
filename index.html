@@ -40,6 +40,9 @@ h1 b{color:var(--red)}
 .mine .good::before{content:"+";color:var(--green)}.mine .bad::before{content:"−";color:var(--red)}.mine .oth::before{content:"•";color:var(--mute)}
 .grate{display:inline-flex;align-items:center;gap:4px;color:#fbbc04;font-weight:600;text-decoration:none;font-size:14px;white-space:nowrap}
 .grate span{color:var(--mute);font-weight:400}
+.sug{display:block;width:100%;text-align:left;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:10px 12px;margin-top:6px;font:inherit;font-size:15px;cursor:pointer}
+.sug b{font-weight:600}.sug small{display:block;color:var(--mute);font-size:13px;margin-top:2px}
+.sug:focus-visible{outline:2px solid var(--red)}
 .nearbar{display:flex;align-items:center;gap:8px;padding:8px 14px 0;font-size:14px}
 .nearbar span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .nearbar select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit;font-size:14px}
@@ -135,7 +138,8 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
 
 <dialog id="edit"><form class="dlg" id="editForm" method="dialog">
   <h2 id="editTitle">Add restaurant</h2>
-  <label for="fName">Name</label><input id="fName" required placeholder="e.g. Golf's Steak House">
+  <label for="fName">Restaurant name</label><input id="fName" required autocomplete="off" placeholder="Start typing, e.g. Jerusalem Shawarma">
+  <div class="loc" id="sugMsg"></div><div id="sugs"></div>
   <label for="fType">Food type</label><input id="fType" required list="types" placeholder="e.g. Pizza, Sushi, Persian">
   <datalist id="types"></datalist>
   <label for="fAddr">Address</label><input id="fAddr" placeholder="Street, city">
@@ -355,6 +359,35 @@ const LocCtl=L.Control.extend({options:{position:'bottomright'},onAdd(){const b=
 new LocCtl().addTo(map);
 map.on('dragstart',()=>document.querySelector('.locbtn')?.classList.remove('on'));
 
+/* name lookup: Photon (OpenStreetMap) suggestions, then details from Nominatim */
+const CUI={pizza:'Pizza',burger:'Burgers',sandwich:'Burgers',chicken:'Fried chicken',fried_chicken:'Fried chicken',kebab:'Shawarma & donair',shawarma:'Shawarma & donair',donair:'Shawarma & donair',lebanese:'Lebanese',middle_eastern:'Middle Eastern',arab:'Middle Eastern',iraqi:'Middle Eastern',syrian:'Middle Eastern',yemeni:'Middle Eastern',persian:'Middle Eastern',mediterranean:'Middle Eastern',indian:'Indian',pakistani:'Pakistani',afghan:'Afghan',turkish:'Turkish',moroccan:'Moroccan',chinese:'Chinese',japanese:'Japanese',sushi:'Japanese',korean:'Korean',thai:'Thai',vietnamese:'Vietnamese',italian:'Italian',greek:'Greek',mexican:'Mexican',african:'African',ethiopian:'African',somali:'African',bbq:'BBQ',barbecue:'BBQ',steak_house:'Steak',steak:'Steak',nepalese:'Nepali',nepali:'Nepali',breakfast:'Breakfast & cafe',coffee_shop:'Breakfast & cafe',ice_cream:'Dessert & ice cream',dessert:'Dessert & ice cream',donut:'Dessert & ice cream'};
+const KIND={cafe:'Breakfast & cafe',ice_cream:'Dessert & ice cream',bakery:'Bakery',pastry:'Bakery',confectionery:'Dessert & ice cream',butcher:'Halal butcher',supermarket:'Grocery & store',convenience:'Grocery & store',greengrocer:'Grocery & store',deli:'Grocery & store'};
+const FOODKEYS=/^(restaurant|fast_food|cafe|food_court|ice_cream|bar|pub|bakery|pastry|confectionery|butcher|supermarket|convenience|greengrocer|deli|deli)$/;
+function guessType(kind,cuisine){for(const c of String(cuisine||'').toLowerCase().split(/[;,]/).map(x=>x.trim()))if(CUI[c])return CUI[c];if(KIND[kind])return KIND[kind];const c0=String(cuisine||'').split(/[;,]/)[0].trim();return c0?norm(c0.replace(/_/g,' ')):''}
+let sugT=null,sugSeq=0,sugList=[];
+$('#fName').addEventListener('input',()=>{if(editing)return;clearTimeout(sugT);const q=$('#fName').value.trim();if(q.length<3){$('#sugs').innerHTML='';return}sugT=setTimeout(()=>suggest(q),450)});
+async function suggest(q){const seq=++sugSeq,m=$('#sugMsg');m.className='loc';m.textContent='Searching…';
+  const c=me||{lat:51.045,lng:-114.07};let out=[];
+  try{const j=await(await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=${c.lat}&lon=${c.lng}&limit=12&lang=en&bbox=-114.45,50.80,-113.80,51.30`)).json();
+    out=(j.features||[]).filter(f=>f.properties&&f.properties.name&&FOODKEYS.test(f.properties.osm_value||'')).map(f=>{const p=f.properties;return{name:p.name,lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0],street:[p.housenumber,p.street].filter(Boolean).join(' '),area:p.district||p.locality||p.city||'',kind:p.osm_value,osm:(p.osm_type||'N')+p.osm_id}})}catch(e){}
+  if(!out.length){try{const j=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=8&addressdetails=1&extratags=1&bounded=1&viewbox=-114.45,51.30,-113.80,50.80&q='+encodeURIComponent(q))).json();
+    out=j.filter(x=>x.name).map(x=>{const a=x.address||{};return{name:x.name,lat:+x.lat,lng:+x.lon,street:[a.house_number,a.road].filter(Boolean).join(' '),area:a.suburb||a.neighbourhood||'',kind:x.type,osm:(x.osm_type||'n')[0].toUpperCase()+x.osm_id,extra:x.extratags||{}}})}catch(e){}}
+  if(seq!==sugSeq)return;
+  out=out.slice(0,6);sugList=out;
+  if(!out.length){m.className='loc bad';m.innerHTML=`Not found in the free map database. Type the address below, or tap “I’m here now”. <a href="https://www.google.com/maps/search/${encodeURIComponent(q+' Calgary')}" target="_blank" rel="noopener" style="color:inherit">Look it up on Google Maps</a>`;$('#sugs').innerHTML='';return}
+  m.textContent='Tap the right one:';
+  $('#sugs').innerHTML=out.map((o,i)=>`<button type="button" class="sug" data-i="${i}"><b>${esc(o.name)}</b><small>${esc([o.street,o.area].filter(Boolean).join(', ')||'Calgary')}${me?' · '+km(me,o).toFixed(1)+' km away':''}</small></button>`).join('')}
+$('#sugs').addEventListener('click',async e=>{const b=e.target.closest('.sug');if(!b)return;const o=sugList[+b.dataset.i];if(!o)return;
+  $('#sugs').innerHTML='';sugSeq++;
+  $('#fName').value=o.name;$('#fAddr').value=[o.street,o.area].filter(Boolean).join(', ');draft.lat=+o.lat.toFixed(6);draft.lng=+o.lng.toFixed(6);showLoc();
+  let ex=o.extra;
+  if(!ex){$('#sugMsg').textContent='Getting details…';try{const j=await(await fetch('https://nominatim.openstreetmap.org/lookup?format=json&addressdetails=1&extratags=1&osm_ids='+o.osm)).json();ex=(j[0]&&j[0].extratags)||{};const a=(j[0]&&j[0].address)||{};if(!o.street&&a.road)$('#fAddr').value=[a.house_number,a.road].filter(Boolean).join(' ')+(a.suburb?', '+a.suburb:'')}catch(err){ex={}}}
+  const t=guessType(o.kind,ex.cuisine);if(t&&!$('#fType').value)$('#fType').value=t;
+  const ph=ex.phone||ex['contact:phone'];if(ph&&!$('#fPhone').value)$('#fPhone').value=ph;
+  const w=ex.website||ex['contact:website'];if(w&&!$('#fWeb').value)$('#fWeb').value=w;
+  const got=[t&&'food type',ph&&'phone',w&&'website'].filter(Boolean);
+  $('#sugMsg').className='loc ok';$('#sugMsg').textContent='Filled in the address'+(got.length?' and '+got.join(', '):'')+'. Check it, then tap Save.'+(t?'':' Pick a food type.');
+  if(!t)$('#fType').focus()});
 /* geocoding (OpenStreetMap Nominatim) */
 async function geocode(q){
   const c=map.getCenter(),b=map.getBounds();
@@ -367,7 +400,7 @@ async function geocode(q){
 $('#fDays').innerHTML=[1,2,3,4,5,6,0].map(d=>`<button type="button" data-d="${d}" aria-pressed="false">${DAYS[d]}</button>`).join('');
 $('#fDays').addEventListener('click',e=>{const b=e.target.closest('button');if(b)b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')!=='true')});
 function showLoc(){const m=$('#locMsg');if(hasLoc(draft)){m.className='loc ok';m.textContent=`Location set (${draft.lat.toFixed(4)}, ${draft.lng.toFixed(4)})`}else{m.className='loc';m.textContent='No location yet. It will be looked up from the address when you save.'}}
-function openEdit(r){editing=r||null;draft={lat:r?.lat,lng:r?.lng};
+function openEdit(r){editing=r||null;draft={lat:r?.lat,lng:r?.lng};$('#sugs').innerHTML='';$('#sugMsg').textContent=r?'':'Type the name and pick it from the list. The address and details fill in by themselves.';
   $('#editTitle').textContent=r?'Edit restaurant':'Add restaurant';$('#delBtn').hidden=!r;
   $('#fName').value=r?.name||'';$('#fType').value=r?.type||'';$('#fAddr').value=r?.address||'';$('#fOffer').value=r?.offer||'';
   $('#fUntil').value=r?.until||'';$('#fPhone').value=r?.phone||'';$('#fWeb').value=r?.web||'';$('#fNotes').value=r?.notes||'';$('#fMust').checked=!!r?.must;$('#fTried').checked=!!r?.tried;
