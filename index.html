@@ -34,6 +34,12 @@ h1 b{color:var(--red)}
 .locbtn svg{width:24px;height:24px}.locbtn.on{color:#1a73e8}
 .acc{fill:#3b8cff;fill-opacity:.12;stroke:#3b8cff;stroke-opacity:.4;stroke-width:1}
 .offer a{color:inherit;font-size:13px}
+.mine{margin-top:10px;font-size:15px;display:grid;gap:4px}
+.mine div{padding-left:22px;position:relative}
+.mine div::before{position:absolute;left:0;top:0;font-weight:700}
+.mine .good::before{content:"+";color:var(--green)}.mine .bad::before{content:"−";color:var(--red)}.mine .oth::before{content:"•";color:var(--mute)}
+.grate{display:inline-flex;align-items:center;gap:4px;color:#fbbc04;font-weight:600;text-decoration:none;font-size:14px;white-space:nowrap}
+.grate span{color:var(--mute);font-weight:400}
 .nearbar{display:flex;align-items:center;gap:8px;padding:8px 14px 0;font-size:14px}
 .nearbar span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
 .nearbar select{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit;font-size:14px}
@@ -153,6 +159,13 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
   <div class="foot"><button class="btn" id="impClose">Close</button><button class="btn pri" id="impGo">Add to map</button></div>
 </div></dialog>
 
+<dialog id="notes"><form class="dlg" id="notesForm">
+  <h2 id="notesTitle">My notes</h2>
+  <label for="nLiked">Dishes I liked</label><textarea id="nLiked" placeholder="e.g. Chicken karahi, garlic naan"></textarea>
+  <label for="nBad">Didn't like or avoid</label><textarea id="nBad" placeholder="e.g. Biryani was too oily, slow service on weekends"></textarea>
+  <label for="nOther">Other notes</label><textarea id="nOther" placeholder="Parking, best time to go, who liked it…"></textarea>
+  <div class="foot"><button type="button" class="btn" id="notesCancel">Cancel</button><button type="submit" class="btn pri">Save notes</button></div>
+</form></dialog>
 <dialog id="near"><form class="dlg" id="nearForm">
   <h2>Restaurants near an address</h2>
   <label for="nearQ">Address, place or postal code</label>
@@ -229,10 +242,11 @@ function visible(){
     if(F.mark==='new'&&r.tried)return false;
     if(F.mark==='tried'&&!r.tried)return false;
     if(NEAR&&NEAR.r){if(!hasLoc(r)||km(NEAR,r)>NEAR.r)return false}
-    if(q&&!`${r.name} ${r.type} ${r.notes||''} ${r.offer||''} ${r.address||''}`.toLowerCase().includes(q))return false;
+    if(q&&!`${r.name} ${r.type} ${r.notes||''} ${r.offer||''} ${r.address||''} ${r.liked||''} ${r.disliked||''} ${r.myNotes||''}`.toLowerCase().includes(q))return false;
     return true;
   });
 }
+function gUrl(r){return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(r.name+' '+(r.address||'Calgary'))}
 function dirUrl(r){return 'https://www.google.com/maps/dir/?api=1&destination='+(hasLoc(r)?r.lat+','+r.lng:encodeURIComponent(r.name+' '+(r.address||'')))}
 
 function renderChips(){
@@ -262,7 +276,7 @@ function render(){
   for(const r of v){if(!hasLoc(r))continue;
     const t=norm(r.type),o=offerState(r);
     const m=L.marker([r.lat,r.lng],{icon:L.divIcon({className:'pin'+(o?.live?' deal':''),html:`<span style="--c:${col(t)}"><b>${esc(t[0])}</b></span>`,iconSize:[34,34],iconAnchor:[17,36],popupAnchor:[0,-34]})});
-    m.bindPopup(`<b>${esc(r.name)}</b><br>${esc(t)}${r.must?' · Must try':''}${r.tried?' · Tried':''}${r.notes?'<br>'+esc(r.notes):''}${o?`<br><span style="color:${o.live?'var(--green)':'var(--mute)'}">${esc(r.offer)}</span>`:''}<br><a href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a>`);
+    m.bindPopup(`<b>${esc(r.name)}</b>${r.grating?` <span style="color:#fbbc04">★ ${r.grating}</span> (${Number(r.gcount||0).toLocaleString()})`:''}<br>${esc(t)}${r.must?' · Must try':''}${r.tried?' · Tried':''}${r.notes?'<br>'+esc(r.notes):''}${o?`<br><span style="color:${o.live?'var(--green)':'var(--mute)'}">${esc(r.offer)}</span>`:''}<br><a href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a>`);
     m.on('click',()=>focusCard(r.id));
     m.addTo(layer);markers[r.id]=m;}
   const L2=$('#list');
@@ -271,14 +285,17 @@ function render(){
   L2.innerHTML=v.map(r=>{const t=norm(r.type),o=offerState(r);
     return `<article class="card${hot===r.id?' hot':''}" id="c-${r.id}">
     <div class="row"><div><div class="name">${esc(r.name)}${r.must?'<span class="badge b-must">Must try</span>':''}${r.tried?'<span class="badge b-tried">Tried</span>':''}</div>
-    <div class="meta"><span class="tag" style="--c:${col(t)}"><i></i>${esc(t)}</span>${r.address?`<span>${esc(r.address)}</span>`:''}${!hasLoc(r)?'<span style="color:var(--amber)">Not on map yet</span>':''}</div></div>
+    <div class="meta"><span class="tag" style="--c:${col(t)}"><i></i>${esc(t)}</span>${r.grating?`<a class="grate" href="${gUrl(r)}" target="_blank" rel="noopener" title="Google rating, checked ${esc(r.gchecked||'')}">★ ${r.grating}<span>(${Number(r.gcount||0).toLocaleString()})</span></a>`:''}${r.address?`<span>${esc(r.address)}</span>`:''}${!hasLoc(r)?'<span style="color:var(--amber)">Not on map yet</span>':''}</div></div>
     ${r._d!=null?`<span class="dist">${r._d<1?Math.round(r._d*1000)+' m':r._d.toFixed(1)+' km'}</span>`:''}</div>
     ${o?`<div class="offer ${o.cls}">${esc(r.offer)}<small>${esc(o.label)}${r.offerSrc?` · <a href="${esc(r.offerSrc)}" target="_blank" rel="noopener">source</a>`:''}${r.offerChecked?' · checked '+esc(r.offerChecked):''}</small></div>`:''}
     ${r.notes?`<div class="meta" style="margin-top:8px">${esc(r.notes)}</div>`:''}
+    ${(r.liked||r.disliked||r.myNotes)?`<div class="mine">${r.liked?`<div class="good">${esc(r.liked)}</div>`:''}${r.disliked?`<div class="bad">${esc(r.disliked)}</div>`:''}${r.myNotes?`<div class="oth">${esc(r.myNotes)}</div>`:''}</div>`:''}
     <div class="acts"><a class="btn pri" href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a>
     ${hasLoc(r)?`<button class="btn" data-act="show" data-id="${r.id}">Show on map</button>`:''}
     ${r.phone?`<a class="btn" href="tel:${esc(r.phone.replace(/[^\d+]/g,''))}">Call</a>`:''}
     ${r.web?`<a class="btn" href="${esc(r.web)}" target="_blank" rel="noopener">Website</a>`:''}
+    <a class="btn" href="${gUrl(r)}" target="_blank" rel="noopener">Google reviews</a>
+    <button class="btn" data-act="notes" data-id="${r.id}">${(r.liked||r.disliked||r.myNotes)?'Edit my notes':'My notes'}</button>
     <button class="btn ghost" data-act="edit" data-id="${r.id}">Edit</button></div></article>`}).join('');
 }
 function focusCard(id){hot=id;document.querySelectorAll('.card.hot').forEach(c=>c.classList.remove('hot'));const c=$('#c-'+id);if(c){c.classList.add('hot');c.scrollIntoView({behavior:'smooth',block:'nearest'})}}
@@ -295,6 +312,7 @@ $('#list').addEventListener('click',e=>{const b=e.target.closest('[data-act]');i
   if(a==='add')openEdit();else if(a==='import')$('#imp').showModal();
   else if(a==='clear'){F.type='';F.deal='';F.mark='';F.q='';$('#q').value='';render()}
   else if(a==='edit')openEdit(r);
+  else if(a==='notes'&&r)openNotes(r);
   else if(a==='show'&&r){map.setView([r.lat,r.lng],16);markers[r.id]?.openPopup();focusCard(r.id)}});
 $('#q').addEventListener('input',e=>{F.q=e.target.value.trim();render()});
 $('#sort').addEventListener('change',()=>{try{localStorage.setItem(KEY+'.ui',JSON.stringify({sort:$('#sort').value}))}catch(e){};if($('#sort').value==='dist'&&!me)locate(false);render()});
@@ -369,7 +387,7 @@ $('#editForm').addEventListener('submit',async e=>{e.preventDefault();
     days:[...document.querySelectorAll('#fDays button[aria-pressed=true]')].map(b=>+b.dataset.d),until:$('#fUntil').value,phone:$('#fPhone').value.trim(),web:$('#fWeb').value.trim(),notes:$('#fNotes').value.trim(),must:$('#fMust').checked,offerSrc:(editing&&editing.offer===$('#fOffer').value.trim())?editing.offerSrc||'':'',offerChecked:(editing&&editing.offer===$('#fOffer').value.trim())?editing.offerChecked||'':'',onDate:(editing&&editing.offer===$('#fOffer').value.trim())?editing.onDate||'':'',offerLocked:!!(editing?.offerLocked||(editing?editing.offer!==$('#fOffer').value.trim():$('#fOffer').value.trim())),tried:$('#fTried').checked,lat:draft.lat,lng:draft.lng};
   if(rec.web&&!/^https?:\/\//i.test(rec.web))rec.web='https://'+rec.web;
   if(!hasLoc(rec)&&rec.address){$('#saveBtn').textContent='Finding…';try{const g=await geocode(rec.address);if(g)Object.assign(rec,g)}catch(err){}$('#saveBtn').textContent='Save'}
-  const i=R.findIndex(x=>x.id===rec.id);i>=0?R[i]=rec:R.push(rec);save();$('#edit').close();render();
+  const i=R.findIndex(x=>x.id===rec.id);i>=0?R[i]={...R[i],...rec}:R.push(rec);save();$('#edit').close();render();
   if(hasLoc(rec)){map.setView([rec.lat,rec.lng],Math.max(map.getZoom(),14));focusCard(rec.id)}else toast('Saved. Not on the map yet: edit it and use Pick on map.')});
 $('#delBtn').addEventListener('click',()=>{if($('#delBtn').dataset.sure!=='1'){$('#delBtn').dataset.sure='1';$('#delBtn').textContent='Tap again to delete';setTimeout(()=>{$('#delBtn').dataset.sure='';$('#delBtn').textContent='Delete'},3000);return}
   R=R.filter(x=>x.id!==editing.id);save();$('#delBtn').dataset.sure='';$('#delBtn').textContent='Delete';$('#edit').close();render()});
@@ -392,6 +410,11 @@ $('#impGo').addEventListener('click',async()=>{
   msg.textContent=`Added ${lines.length}. ${ok} placed on the map.`+(miss.length?` Not found: ${miss.join(', ')}. Edit them and use Pick on map.`:'');
   if(!miss.length)$('#impText').value='';fit()});
 
+/* my notes */
+let noteFor=null;
+function openNotes(r){noteFor=r;$('#notesTitle').textContent='My notes: '+r.name;$('#nLiked').value=r.liked||'';$('#nBad').value=r.disliked||'';$('#nOther').value=r.myNotes||'';$('#notes').showModal()}
+$('#notesCancel').addEventListener('click',()=>$('#notes').close());
+$('#notesForm').addEventListener('submit',e=>{e.preventDefault();if(!noteFor)return;noteFor.liked=$('#nLiked').value.trim();noteFor.disliked=$('#nBad').value.trim();noteFor.myNotes=$('#nOther').value.trim();save();$('#notes').close();render();focusCard(noteFor.id);toast('Notes saved')});
 /* menu */
 const menu=$('#menu');$('#menuBtn').addEventListener('click',()=>menu.showModal());$('#menuClose').addEventListener('click',()=>menu.close());
 $('#mImport').addEventListener('click',()=>{menu.close();$('#imp').showModal()});
@@ -405,10 +428,11 @@ $('#restoreFile').addEventListener('change',async e=>{const f=e.target.files[0];
 
 async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.starter'))return;const d=await(await fetch('starter.json',{cache:'no-store'})).json();const ids=new Set(R.map(r=>r.id));let n=0;d.forEach(r=>{if(!ids.has(r.id)){R.push(r);n++}});localStorage.setItem(KEY+'.starter','1');save();render();fit();if(n)toast(`Added ${n} places from your Calgary list`)}catch(e){}}
 $('#mReset').addEventListener('click',async()=>{const x=$('#mReset');if(x.dataset.sure!=='1'){x.dataset.sure='1';x.textContent='Tap again: this removes everything else saved on this phone';setTimeout(()=>{x.dataset.sure='';x.textContent='Start over: only the Calgary list'},4000);return}
-  R=[];try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+'.starter')}catch(e){}menu.close();await loadStarter(true);await loadOffers();x.dataset.sure='';x.textContent='Start over: only the Calgary list';toast('Reset done: '+R.length+' places')});
+  R=[];try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+'.starter')}catch(e){}menu.close();await loadStarter(true);await loadOffers();await loadRatings();x.dataset.sure='';x.textContent='Start over: only the Calgary list';toast('Reset done: '+R.length+' places')});
 $('#mStarter').addEventListener('click',()=>{menu.close();loadStarter(true)});
+async function loadRatings(){try{const d=await(await fetch('ratings.json',{cache:'no-store'})).json();for(const r of R){const g=d[r.id];if(g){r.grating=g.rating;r.gcount=g.count;r.gchecked=g.checked}}save();render()}catch(e){}}
 async function loadOffers(){try{const d=await(await fetch('offers.json',{cache:'no-store'})).json();let n=0;for(const r of R){const o=d[r.id];if(r.offerLocked)continue;if(o){if(r.offer!==o.offer||r.offerSrc!==o.src)n++;Object.assign(r,{offer:o.offer,days:o.days||[],until:o.until||'',onDate:o.onDate||'',offerSrc:o.src||'',offerChecked:o.checked||''})}else if(r.offerSrc){Object.assign(r,{offer:'',days:[],until:'',onDate:'',offerSrc:'',offerChecked:''})}}save();render();if(n)toast(`Offers updated (${n})`)}catch(e){}}
-render();fit();loadStarter(false).then(loadOffers);
+render();fit();loadStarter(false).then(loadOffers).then(loadRatings);
 if(navigator.permissions)navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='granted')locate(!R.length)}).catch(()=>{});
 setInterval(render,10*60*1000); // refresh "deals today" across midnight
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
