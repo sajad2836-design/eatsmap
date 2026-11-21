@@ -1,0 +1,78 @@
+{
+ "c-modern-steak": {
+  "offer": "Happy hour Mon–Fri 2:30–5:30 pm and 9 pm–close (Sat 9 pm–close): discounted bar bites, $8 feature drinks. Wednesday date night is sometimes 2 steaks + 2 sides + wine for $98; check their Instagram",
+  "days": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6
+  ],
+  "src": "https://dailygrub.ca/calgary",
+  "checked": "2026-11-21"
+ },
+ "c-omo-teppan-kitchen": {
+  "offer": "Happy hour 3–5 pm: 50% off selected nigiri, sashimi and rolls (dine-in only)",
+  "days": [],
+  "src": "https://dailygrub.ca/calgary",
+  "checked": "2026-11-21"
+ },
+ "c-the-guild": {
+  "offer": "Happy hour Mon–Fri 2–6 pm, Sat–Sun 4–6 pm: $10 Guild favourites and bar bites",
+  "days": [],
+  "src": "https://opentable.com/r/the-guild-calgary",
+  "checked": "2026-11-21"
+ },
+ "c-major-tom": {
+  "offer": "Golden Hour daily 3–5 pm: drink specials, including alcohol-free cocktails",
+  "days": [],
+  "src": "https://opentable.com/r/major-tom-calgary",
+  "checked": "2026-11-21"
+ },
+ "c-ruth-s-chris-steak-house": {
+  "offer": "Prime Time menu 5:00–6:30 pm: set menu for less",
+  "days": [],
+  "src": "https://opentable.co.uk/restaurant/profile/7692",
+  "checked": "2026-11-21"
+ },
+ "c-chairman-s-steakhouse": {
+  "offer": "Happy hour on weekdays 4–6 pm, in the lounge only",
+  "days": [
+   1,
+   2,
+   3,
+   4,
+   5
+  ],
+  "src": "https://www.avenuecalgary.com/restaurants-food/calgarys-best-happy-hours/",
+  "checked": "2026-11-21"
+ },
+ "c-boardwalk-burgers": {
+  "offer": "Tuesday special: crispy chicken sandwich",
+  "days": [
+   2
+  ],
+  "src": "https://www.zabihah.com/restaurants/08dd4157-fb33-466f-80a6-7d94bf3163ec/boardwalk-burgers-fries-calgary-ab",
+  "checked": "2026-11-21"
+ },
+ "c-jerusalem-shawarma": {
+  "offer": "Sandwich deal for 2 people: $23.99 (16 Ave NW, pickup)",
+  "days": [],
+  "src": "https://order.toasttab.com/online/jerusalem-shawarma-transcanada",
+  "checked": "2026-11-21"
+ },
+ "c-osmow-s": {
+  "offer": "National Shawarma Day: $5 chicken shawarma wrap or On The Rocks",
+  "onDate": "10-15",
+  "days": [],
+  "src": "https://www.newswire.ca/news-releases/osmow-s-tm-national-shawarma-day-is-baaaack-on-october-15--895203878.html",
+  "checked": "2026-11-21"
+ },
+ "c-well-bake": {
+  "offer": "On Uber Eats: a free item when you spend $40 (app promo; it changes often)",
+  "days": [],
+  "src": "https://www.ubereats.com/ca/dish/calgary-ab/apple-pie",
+  "checked": "2026-11-21"
+ }
+}
