@@ -178,6 +178,18 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
   <div id="nearRes"></div>
   <div class="foot"><button type="button" class="btn" id="nearCancel">Cancel</button><button type="submit" class="btn pri">Search</button></div>
 </form></dialog>
+<dialog id="shareDlg"><div class="dlg">
+  <h2>Share my list</h2>
+  <p class="hint" style="margin:0">Sends a link with your places, food types, Must try / Tried marks, offers and notes. The person opens it and taps <b>Add to my map</b>.</p>
+  <div class="checks" style="flex-direction:column;gap:12px"><label><input type="checkbox" id="shPrivate"> Include my private notes (liked / didn't like / other)</label><label><input type="checkbox" id="shFiltered"> Only the places showing now (current filters)</label></div>
+  <div class="loc" id="shMsg"></div>
+  <div class="foot"><button class="btn" id="shClose">Close</button><button class="btn pri" id="shGo">Share link</button></div>
+</div></dialog>
+<dialog id="recvDlg"><div class="dlg">
+  <h2 id="recvTitle">Someone shared places with you</h2>
+  <p class="hint" id="recvTxt" style="margin:0"></p>
+  <div class="foot" style="flex-direction:column;align-items:stretch"><button class="btn pri" id="recvAdd">Add to my map</button><button class="btn" id="recvReplace">Replace my list with this one</button><button class="btn ghost" id="recvCancel">Not now</button></div>
+</div></dialog>
 <dialog id="menu"><div class="dlg">
   <h2>Menu</h2>
   <div class="acts" style="flex-direction:column;align-items:stretch">
@@ -185,6 +197,8 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
     <button class="btn" id="mLocate">Show where I am</button>
     <button class="btn" id="mFit">Zoom to all my places</button>
     <button class="btn" id="mStarter">Reload my Calgary list</button>
+    <button class="btn pri" id="mShareApp">Share EatsMap with someone</button>
+    <button class="btn" id="mShareList">Share my list (with my changes)</button>
     <button class="btn" id="mReset">Start over: only the Calgary list</button>
     <button class="btn" id="mExport">Save a backup file</button>
     <button class="btn" id="mCopy">Copy backup text</button>
@@ -300,6 +314,7 @@ function render(){
     ${r.web?`<a class="btn" href="${esc(r.web)}" target="_blank" rel="noopener">Website</a>`:''}
     <a class="btn" href="${gUrl(r)}" target="_blank" rel="noopener">Google reviews</a>
     ${hasLoc(r)?`<button class="btn" data-act="nearby" data-id="${r.id}">Nearby</button>`:''}
+    <button class="btn" data-act="share" data-id="${r.id}">Share</button>
     <button class="btn" data-act="notes" data-id="${r.id}">${(r.liked||r.disliked||r.myNotes)?'Edit my notes':'My notes'}</button>
     <button class="btn ghost" data-act="edit" data-id="${r.id}">Edit</button></div></article>`}).join('');
 }
@@ -318,6 +333,7 @@ $('#list').addEventListener('click',e=>{const b=e.target.closest('[data-act]');i
   else if(a==='clear'){F.type='';F.deal='';F.mark='';F.q='';$('#q').value='';render()}
   else if(a==='edit')openEdit(r);
   else if(a==='notes'&&r)openNotes(r);
+  else if(a==='share'&&r)sharePlace(r);
   else if(a==='nearby'&&r)setNear({lat:r.lat,lng:r.lng,label:r.name,id:r.id});
   else if(a==='show'&&r){map.setView([r.lat,r.lng],16);markers[r.id]?.openPopup();focusCard(r.id)}});
 $('#q').addEventListener('input',e=>{F.q=e.target.value.trim();render()});
@@ -457,6 +473,43 @@ let noteFor=null;
 function openNotes(r){noteFor=r;$('#notesTitle').textContent='My notes: '+r.name;$('#nLiked').value=r.liked||'';$('#nBad').value=r.disliked||'';$('#nOther').value=r.myNotes||'';$('#notes').showModal()}
 $('#notesCancel').addEventListener('click',()=>$('#notes').close());
 $('#notesForm').addEventListener('submit',e=>{e.preventDefault();if(!noteFor)return;noteFor.liked=$('#nLiked').value.trim();noteFor.disliked=$('#nBad').value.trim();noteFor.myNotes=$('#nOther').value.trim();save();$('#notes').close();render();focusCard(noteFor.id);toast('Notes saved')});
+/* sharing */
+const APPURL=location.origin+location.pathname;
+async function shareOrCopy(data){try{if(navigator.share){await navigator.share(data);return true}}catch(e){if(e&&e.name==='AbortError')return false}
+  try{await navigator.clipboard.writeText([data.text,data.url].filter(Boolean).join('\n'));toast('Link copied. Paste it in WhatsApp or a message.');return true}catch(e){toast('Could not share from this browser');return false}}
+function sharePlace(r){const t=norm(r.type);const lines=[`${r.name} (${t})`,r.address||'',r.offer?'Deal: '+r.offer:'',r.notes||'',r.liked?'Good: '+r.liked:''].filter(Boolean);
+  shareOrCopy({title:r.name,text:lines.join('\n'),url:gUrl(r)})}
+$('#mShareApp').addEventListener('click',()=>{menu.close();shareOrCopy({title:'EatsMap',text:'EatsMap: my favourite Calgary restaurants on a map, with food-type filters, deals and directions. Open it in Chrome, then ⋮ → Add to Home screen.',url:APPURL})});
+async function b64gz(str){const cs=new CompressionStream('gzip');const buf=await new Response(new Blob([str]).stream().pipeThrough(cs)).arrayBuffer();let bin='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=8192)bin+=String.fromCharCode(...u.subarray(i,i+8192));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+async function unb64gz(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text()}
+const SHF=['id','name','type','address','lat','lng','notes','must','tried','offer','days','until','onDate','phone','web','offerSrc','offerChecked','offerLocked'];
+$('#mShareList').addEventListener('click',()=>{menu.close();$('#shMsg').textContent='';$('#shareDlg').showModal()});
+$('#shClose').addEventListener('click',()=>$('#shareDlg').close());
+$('#shGo').addEventListener('click',async()=>{const priv=$('#shPrivate').checked;const list=$('#shFiltered').checked?visible():R;
+  const keys=priv?[...SHF,'liked','disliked','myNotes']:SHF;
+  const data=list.map(r=>{const o={};for(const k of keys){const v=r[k];if(v!==undefined&&v!==''&&v!==false&&!(Array.isArray(v)&&!v.length))o[k]=v}return o});
+  const m=$('#shMsg');m.className='loc';m.textContent='Preparing link…';
+  try{const enc=await b64gz(JSON.stringify({v:1,n:data}));const url=APPURL+'#share='+enc;
+    m.className='loc ok';m.textContent=`Link ready: ${data.length} places.`;
+    await shareOrCopy({title:'My EatsMap list',text:`${data.length} restaurants from my EatsMap. Open the link and tap "Add to my map".`,url})}
+  catch(e){m.className='loc bad';m.textContent='This browser cannot make the link. Use Menu → Save a backup file and send the file instead.'}});
+let incoming=null;
+async function checkIncoming(){const h=location.hash;if(!h.startsWith('#share='))return;
+  try{const d=JSON.parse(await unb64gz(h.slice(7)));incoming=(d.n||[]).filter(r=>r&&r.name);}catch(e){incoming=null;toast('That shared link is damaged or incomplete')}
+  history.replaceState(null,'',location.pathname);
+  if(!incoming||!incoming.length)return;
+  const have=new Set(R.map(r=>r.id));const newOnes=incoming.filter(r=>!have.has(r.id)&&!R.some(x=>x.name.toLowerCase()===r.name.toLowerCase()));
+  $('#recvTitle').textContent=`Someone shared ${incoming.length} places with you`;
+  $('#recvTxt').textContent=newOnes.length?`${newOnes.length} of them are new for you. "Add" keeps everything you already have and adds the new ones. Your own notes are never overwritten.`:'You already have all of these places. "Replace" makes your list exactly like theirs.';
+  $('#recvDlg').showModal()}
+$('#recvCancel').addEventListener('click',()=>{incoming=null;$('#recvDlg').close()});
+$('#recvAdd').addEventListener('click',()=>{if(!incoming)return;let n=0;
+  for(const r of incoming){const ex=R.find(x=>x.id===r.id)||R.find(x=>x.name.toLowerCase()===r.name.toLowerCase());
+    if(ex){for(const k of ['liked','disliked','myNotes'])if(r[k]&&!ex[k])ex[k]=r[k];continue}
+    R.push({...r,id:r.id||uid()});n++}
+  try{localStorage.setItem(KEY+'.starter','1')}catch(e){}save();render();fit();$('#recvDlg').close();toast(`Added ${n} new places`);incoming=null});
+$('#recvReplace').addEventListener('click',()=>{if(!incoming)return;const b=$('#recvReplace');if(b.dataset.sure!=='1'){b.dataset.sure='1';b.textContent='Tap again: your current list on this phone will be replaced';setTimeout(()=>{b.dataset.sure='';b.textContent='Replace my list with this one'},4000);return}
+  R=incoming.map(r=>({...r,id:r.id||uid()}));try{localStorage.setItem(KEY+'.starter','1')}catch(e){}save();render();fit();$('#recvDlg').close();toast(`Your list now has ${R.length} places`);incoming=null});
 /* menu */
 const menu=$('#menu');$('#menuBtn').addEventListener('click',()=>menu.showModal());$('#menuClose').addEventListener('click',()=>menu.close());
 $('#mImport').addEventListener('click',()=>{menu.close();$('#imp').showModal()});
@@ -468,13 +521,13 @@ $('#mRestore').addEventListener('click',()=>$('#restoreFile').click());
 $('#restoreFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d))throw 0;
   const ids=new Set(R.map(r=>r.id));d.forEach(r=>{if(r&&r.name&&!ids.has(r.id))R.push({...r,id:r.id||uid()})});save();render();fit();menu.close();toast('Backup restored')}catch(err){toast('That file is not an EatsMap backup')}e.target.value=''});
 
-async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.starter'))return;const d=await(await fetch('starter.json',{cache:'no-store'})).json();const ids=new Set(R.map(r=>r.id));let n=0;d.forEach(r=>{if(!ids.has(r.id)){R.push(r);n++}});localStorage.setItem(KEY+'.starter','1');save();render();fit();if(n)toast(`Added ${n} places from your Calgary list`)}catch(e){}}
+async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.starter'))return;if(!force&&!R.length&&location.hash.startsWith('#share='))return;const d=await(await fetch('starter.json',{cache:'no-store'})).json();const ids=new Set(R.map(r=>r.id));let n=0;d.forEach(r=>{if(!ids.has(r.id)){R.push(r);n++}});localStorage.setItem(KEY+'.starter','1');save();render();fit();if(n)toast(`Added ${n} places from your Calgary list`)}catch(e){}}
 $('#mReset').addEventListener('click',async()=>{const x=$('#mReset');if(x.dataset.sure!=='1'){x.dataset.sure='1';x.textContent='Tap again: this removes everything else saved on this phone';setTimeout(()=>{x.dataset.sure='';x.textContent='Start over: only the Calgary list'},4000);return}
   R=[];try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+'.starter')}catch(e){}menu.close();await loadStarter(true);await loadOffers();await loadRatings();x.dataset.sure='';x.textContent='Start over: only the Calgary list';toast('Reset done: '+R.length+' places')});
 $('#mStarter').addEventListener('click',()=>{menu.close();loadStarter(true)});
 async function loadRatings(){try{const d=await(await fetch('ratings.json',{cache:'no-store'})).json();for(const r of R){const g=d[r.id];if(g){r.grating=g.rating;r.gcount=g.count;r.gchecked=g.checked}}save();render()}catch(e){}}
 async function loadOffers(){try{const d=await(await fetch('offers.json',{cache:'no-store'})).json();let n=0;for(const r of R){const o=d[r.id];if(r.offerLocked)continue;if(o){if(r.offer!==o.offer||r.offerSrc!==o.src)n++;Object.assign(r,{offer:o.offer,days:o.days||[],until:o.until||'',onDate:o.onDate||'',offerSrc:o.src||'',offerChecked:o.checked||''})}else if(r.offerSrc){Object.assign(r,{offer:'',days:[],until:'',onDate:'',offerSrc:'',offerChecked:''})}}save();render();if(n)toast(`Offers updated (${n})`)}catch(e){}}
-render();fit();loadStarter(false).then(loadOffers).then(loadRatings);
+render();fit();loadStarter(false).then(loadOffers).then(loadRatings).then(checkIncoming);
 if(navigator.permissions)navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='granted')locate(!R.length)}).catch(()=>{});
 setInterval(render,10*60*1000); // refresh "deals today" across midnight
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
