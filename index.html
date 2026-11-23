@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#1b1815">
-<title>Eats Map</title>
+<title>YYC Halal Eats</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="stylesheet" href="leaflet.css">
@@ -21,8 +21,9 @@
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 Outfit,system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden;-webkit-tap-highlight-color:transparent}
 header{padding:calc(env(safe-area-inset-top) + 10px) 14px 8px;display:flex;gap:10px;align-items:center}
-h1{font-size:22px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
 h1 b{color:var(--red)}
+@media(max-width:420px){h1{font-size:17px}}
 .search{flex:1;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px}
 .iconbtn{width:44px;height:44px;flex:none;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer}
 .iconbtn svg{width:22px;height:22px}
@@ -119,8 +120,8 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
 </head>
 <body>
 <header>
-  <h1>Eats<b>Map</b></h1>
-  <input id="q" class="search" type="search" placeholder="Search name, dish, note" autocomplete="off">
+  <h1>YYC Halal <b>Eats</b></h1>
+  <input id="q" class="search" type="search" placeholder="Search places, notes" autocomplete="off">
   <button class="iconbtn" id="menuBtn" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </header>
 <div class="filters"><label class="tsel"><span class="sr">Food type</span><select id="typeSel" aria-label="Food type"></select></label><nav class="chips" id="chips"></nav></div>
@@ -197,7 +198,7 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
     <button class="btn" id="mLocate">Show where I am</button>
     <button class="btn" id="mFit">Zoom to all my places</button>
     <button class="btn" id="mStarter">Reload my Calgary list</button>
-    <button class="btn pri" id="mShareApp">Share EatsMap with someone</button>
+    <button class="btn pri" id="mShareApp">Share YYC Halal Eats with someone</button>
     <button class="btn" id="mShareList">Share my list (with my changes)</button>
     <button class="btn" id="mReset">Start over: only the Calgary list</button>
     <button class="btn" id="mExport">Save a backup file</button>
@@ -479,7 +480,7 @@ async function shareOrCopy(data){try{if(navigator.share){await navigator.share(d
   try{await navigator.clipboard.writeText([data.text,data.url].filter(Boolean).join('\n'));toast('Link copied. Paste it in WhatsApp or a message.');return true}catch(e){toast('Could not share from this browser');return false}}
 function sharePlace(r){const t=norm(r.type);const lines=[`${r.name} (${t})`,r.address||'',r.offer?'Deal: '+r.offer:'',r.notes||'',r.liked?'Good: '+r.liked:''].filter(Boolean);
   shareOrCopy({title:r.name,text:lines.join('\n'),url:gUrl(r)})}
-$('#mShareApp').addEventListener('click',()=>{menu.close();shareOrCopy({title:'EatsMap',text:'EatsMap: my favourite Calgary restaurants on a map, with food-type filters, deals and directions. Open it in Chrome, then ⋮ → Add to Home screen.',url:APPURL})});
+$('#mShareApp').addEventListener('click',()=>{menu.close();shareOrCopy({title:'YYC Halal Eats',text:'YYC Halal Eats: my favourite Calgary restaurants on a map, with food-type filters, deals and directions. Open it in Chrome, then ⋮ → Add to Home screen.',url:APPURL})});
 async function b64gz(str){const cs=new CompressionStream('gzip');const buf=await new Response(new Blob([str]).stream().pipeThrough(cs)).arrayBuffer();let bin='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=8192)bin+=String.fromCharCode(...u.subarray(i,i+8192));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 async function unb64gz(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text()}
 const SHF=['id','name','type','address','lat','lng','notes','must','offer','days','until','onDate','phone','web','offerSrc','offerChecked','offerLocked'];
@@ -491,7 +492,7 @@ $('#shGo').addEventListener('click',async()=>{const priv=$('#shPrivate').checked
   const m=$('#shMsg');m.className='loc';m.textContent='Preparing link…';
   try{const enc=await b64gz(JSON.stringify({v:1,n:data}));const url=APPURL+'#share='+enc;
     m.className='loc ok';m.textContent=`Link ready: ${data.length} places.`;
-    await shareOrCopy({title:'My EatsMap list',text:`${data.length} restaurants from my EatsMap. Open the link and tap "Add to my map".`,url})}
+    await shareOrCopy({title:'My YYC Halal Eats list',text:`${data.length} restaurants from my YYC Halal Eats list. Open the link and tap "Add to my map".`,url})}
   catch(e){m.className='loc bad';m.textContent='This browser cannot make the link. Use Menu → Save a backup file and send the file instead.'}});
 /* moving to a new address: old host sends saved data along (only when moved.json exists) */
 async function checkMove(){try{const mv=await(await fetch('moved.json',{cache:'no-store'})).json();if(!mv||!mv.to)return false;const to=new URL(mv.to);if(to.host===location.host)return false;
@@ -528,11 +529,11 @@ const menu=$('#menu');$('#menuBtn').addEventListener('click',()=>menu.showModal(
 $('#mImport').addEventListener('click',()=>{menu.close();$('#imp').showModal()});
 $('#mLocate').addEventListener('click',()=>{menu.close();locate(true)});
 $('#mFit').addEventListener('click',()=>{menu.close();fit()});
-$('#mExport').addEventListener('click',()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(R,null,1)],{type:'application/json'}));a.download='eatsmap-backup-'+today().iso+'.json';a.click();menu.close()});
+$('#mExport').addEventListener('click',()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(R,null,1)],{type:'application/json'}));a.download='yyc-halal-eats-backup-'+today().iso+'.json';a.click();menu.close()});
 $('#mCopy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(JSON.stringify(R));toast('Backup copied')}catch(e){toast('Copy not allowed here')}});
 $('#mRestore').addEventListener('click',()=>$('#restoreFile').click());
 $('#restoreFile').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d))throw 0;
-  const ids=new Set(R.map(r=>r.id));d.forEach(r=>{if(r&&r.name&&!ids.has(r.id))R.push({...r,id:r.id||uid()})});save();render();fit();menu.close();toast('Backup restored')}catch(err){toast('That file is not an EatsMap backup')}e.target.value=''});
+  const ids=new Set(R.map(r=>r.id));d.forEach(r=>{if(r&&r.name&&!ids.has(r.id))R.push({...r,id:r.id||uid()})});save();render();fit();menu.close();toast('Backup restored')}catch(err){toast('That file is not a YYC Halal Eats backup')}e.target.value=''});
 
 async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.starter'))return;if(!force&&!R.length&&location.hash.startsWith('#share='))return;const d=await(await fetch('starter.json',{cache:'no-store'})).json();const ids=new Set(R.map(r=>r.id));let n=0;d.forEach(r=>{if(!ids.has(r.id)){R.push(r);n++}});localStorage.setItem(KEY+'.starter','1');save();render();fit();if(n)toast(`Added ${n} places from your Calgary list`)}catch(e){}}
 $('#mReset').addEventListener('click',async()=>{const x=$('#mReset');if(x.dataset.sure!=='1'){x.dataset.sure='1';x.textContent='Tap again: this removes everything else saved on this phone';setTimeout(()=>{x.dataset.sure='';x.textContent='Start over: only the Calgary list'},4000);return}

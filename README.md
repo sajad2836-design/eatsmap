@@ -1,4 +1,4 @@
-# EatsMap – put it on your Galaxy S22 Ultra
+# YYC Halal Eats – put it on your Galaxy S22 Ultra
 
 The app needs to live on a web address (free) so Chrome can install it.
 
