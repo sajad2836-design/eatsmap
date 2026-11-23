@@ -171,9 +171,9 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
   <div class="foot"><button type="button" class="btn" id="notesCancel">Cancel</button><button type="submit" class="btn pri">Save notes</button></div>
 </form></dialog>
 <dialog id="near"><form class="dlg" id="nearForm">
-  <h2>Restaurants near an address</h2>
-  <label for="nearQ">Address, place or postal code</label>
-  <input id="nearQ" placeholder="e.g. 3625 Shaganappi Trail NW, Chinook Centre, T3J 4K3" autocomplete="street-address">
+  <h2>What's around here?</h2>
+  <label for="nearQ">A restaurant, address, mall or postal code</label>
+  <input id="nearQ" placeholder="e.g. Baladi Shawarma, Chinook Centre, 3625 Shaganappi Trail NW" autocomplete="street-address">
   <div class="loc" id="nearMsg"></div>
   <div id="nearRes"></div>
   <div class="foot"><button type="button" class="btn" id="nearCancel">Cancel</button><button type="submit" class="btn pri">Search</button></div>
@@ -280,7 +280,7 @@ function render(){
   for(const r of v){if(!hasLoc(r))continue;
     const t=norm(r.type),o=offerState(r);
     const m=L.marker([r.lat,r.lng],{icon:L.divIcon({className:'pin'+(o?.live?' deal':''),html:`<span style="--c:${col(t)}"><b>${esc(t[0])}</b></span>`,iconSize:[34,34],iconAnchor:[17,36],popupAnchor:[0,-34]})});
-    m.bindPopup(`<b>${esc(r.name)}</b>${r.grating?` <span style="color:#fbbc04">★ ${r.grating}</span> (${Number(r.gcount||0).toLocaleString()})`:''}<br>${esc(t)}${r.must?' · Must try':''}${r.tried?' · Tried':''}${r.notes?'<br>'+esc(r.notes):''}${o?`<br><span style="color:${o.live?'var(--green)':'var(--mute)'}">${esc(r.offer)}</span>`:''}<br><a href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a>`);
+    m.bindPopup(`<b>${esc(r.name)}</b>${r.grating?` <span style="color:#fbbc04">★ ${r.grating}</span> (${Number(r.gcount||0).toLocaleString()})`:''}<br>${esc(t)}${r.must?' · Must try':''}${r.tried?' · Tried':''}${r.notes?'<br>'+esc(r.notes):''}${o?`<br><span style="color:${o.live?'var(--green)':'var(--mute)'}">${esc(r.offer)}</span>`:''}<br><a href="${dirUrl(r)}" target="_blank" rel="noopener">Directions</a> · <a href="#" data-near="${r.id}">What's nearby</a>`);
     m.on('click',()=>focusCard(r.id));
     m.addTo(layer);markers[r.id]=m;}
   const L2=$('#list');
@@ -299,6 +299,7 @@ function render(){
     ${r.phone?`<a class="btn" href="tel:${esc(r.phone.replace(/[^\d+]/g,''))}">Call</a>`:''}
     ${r.web?`<a class="btn" href="${esc(r.web)}" target="_blank" rel="noopener">Website</a>`:''}
     <a class="btn" href="${gUrl(r)}" target="_blank" rel="noopener">Google reviews</a>
+    ${hasLoc(r)?`<button class="btn" data-act="nearby" data-id="${r.id}">Nearby</button>`:''}
     <button class="btn" data-act="notes" data-id="${r.id}">${(r.liked||r.disliked||r.myNotes)?'Edit my notes':'My notes'}</button>
     <button class="btn ghost" data-act="edit" data-id="${r.id}">Edit</button></div></article>`}).join('');
 }
@@ -317,6 +318,7 @@ $('#list').addEventListener('click',e=>{const b=e.target.closest('[data-act]');i
   else if(a==='clear'){F.type='';F.deal='';F.mark='';F.q='';$('#q').value='';render()}
   else if(a==='edit')openEdit(r);
   else if(a==='notes'&&r)openNotes(r);
+  else if(a==='nearby'&&r)setNear({lat:r.lat,lng:r.lng,label:r.name,id:r.id});
   else if(a==='show'&&r){map.setView([r.lat,r.lng],16);markers[r.id]?.openPopup();focusCard(r.id)}});
 $('#q').addEventListener('input',e=>{F.q=e.target.value.trim();render()});
 $('#sort').addEventListener('change',()=>{try{localStorage.setItem(KEY+'.ui',JSON.stringify({sort:$('#sort').value}))}catch(e){};if($('#sort').value==='dist'&&!me)locate(false);render()});
@@ -333,26 +335,33 @@ function locate(center){if(!navigator.geolocation){toast('Location not available
   navigator.geolocation.getCurrentPosition(p=>{lastRender=0;placeMe(p);if(center)map.setView([me.lat,me.lng],15);document.querySelector('.locbtn')?.classList.add('on');
     if(watchId==null)watchId=navigator.geolocation.watchPosition(placeMe,()=>{},{enableHighAccuracy:true,maximumAge:10000})},
   ()=>toast('Location is off. Allow location for this site in Chrome settings.'),{enableHighAccuracy:true,timeout:12000,maximumAge:60000})}
-const NearCtl=L.Control.extend({options:{position:'topleft'},onAdd(){const b=L.DomUtil.create('button','locbtn');b.type='button';b.style.margin='10px 0 0 10px';b.setAttribute('aria-label','Find restaurants near an address');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>';L.DomEvent.disableClickPropagation(b);L.DomEvent.on(b,'click',openNear);return b}});
+const NearCtl=L.Control.extend({options:{position:'topleft'},onAdd(){const b=L.DomUtil.create('button','locbtn');b.type='button';b.style.margin='10px 0 0 10px';b.setAttribute('aria-label','Find what is around a restaurant or address');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/></svg>';L.DomEvent.disableClickPropagation(b);L.DomEvent.on(b,'click',openNear);return b}});
 new NearCtl().addTo(map);
 function openNear(){$('#nearMsg').textContent='';$('#nearRes').innerHTML='';$('#near').showModal();setTimeout(()=>$('#nearQ').focus(),50)}
 let nearHits=[];
 $('#nearCancel').addEventListener('click',()=>$('#near').close());
 $('#nearForm').addEventListener('submit',async e=>{e.preventDefault();let q=$('#nearQ').value.trim();if(!q)return;
   const m=$('#nearMsg');m.className='loc';m.textContent='Searching…';$('#nearRes').innerHTML='';
-  if(!/calgary|alberta|\bab\b|airdrie|chestermere|cochrane/i.test(q))q+=', Calgary, Alberta';
-  try{const j=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=ca&viewbox=-114.4,51.3,-113.8,50.8&q='+encodeURIComponent(q))).json();
-    nearHits=j.map(x=>({lat:+x.lat,lng:+x.lon,label:x.display_name.split(',').slice(0,3).join(',').trim(),full:x.display_name}));
-    if(!nearHits.length){m.className='loc bad';m.textContent='Not found. Try adding the street type (St, Ave, Dr) and quadrant (NW, SE…).';return}
-    if(nearHits.length===1){setNear(nearHits[0]);return}
-    m.textContent='Which one?';$('#nearRes').innerHTML=nearHits.map((h,i)=>`<button type="button" class="res" data-i="${i}">${esc(h.label)}<small>${esc(h.full)}</small></button>`).join('');
-  }catch(err){m.className='loc bad';m.textContent='No internet connection.'}});
+  const ql=q.toLowerCase();
+  const mine=R.filter(r=>hasLoc(r)&&r.name.toLowerCase().includes(ql)).slice(0,4).map(r=>({lat:r.lat,lng:r.lng,label:r.name,full:'Your place · '+norm(r.type)+(r.address?' · '+r.address:''),id:r.id}));
+  let web=[];
+  try{const c=me||{lat:51.045,lng:-114.07};const j=await(await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&lat=${c.lat}&lon=${c.lng}&limit=8&lang=en&bbox=-114.45,50.80,-113.80,51.30`)).json();
+    web=(j.features||[]).filter(f=>f.properties&&(f.properties.name||f.properties.street)).map(f=>{const p=f.properties;const nm=p.name||[p.housenumber,p.street].filter(Boolean).join(' ');return{lat:f.geometry.coordinates[1],lng:f.geometry.coordinates[0],label:nm,full:[p.name?[p.housenumber,p.street].filter(Boolean).join(' '):'',p.district||p.locality||'',(p.osm_value||'').replace(/_/g,' ')].filter(Boolean).join(' · ')}})}catch(err){}
+  if(!web.length){try{let q2=q;if(!/calgary|alberta|\bab\b|airdrie|chestermere|cochrane/i.test(q2))q2+=', Calgary, Alberta';
+    const j=await(await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=ca&viewbox=-114.4,51.3,-113.8,50.8&q='+encodeURIComponent(q2))).json();
+    web=j.map(x=>({lat:+x.lat,lng:+x.lon,label:x.display_name.split(',').slice(0,3).join(',').trim(),full:x.display_name}))}catch(err){}}
+  web=web.filter(w=>!mine.some(o=>km(o,w)<0.15)).slice(0,6);
+  nearHits=[...mine,...web];
+  if(!nearHits.length){m.className='loc bad';m.textContent='Not found. Try the full name, or an address with St/Ave and NW/SE.';return}
+  if(nearHits.length===1){setNear(nearHits[0]);return}
+  m.textContent='Which one?';$('#nearRes').innerHTML=nearHits.map((h,i)=>`<button type="button" class="res" data-i="${i}">${esc(h.label)}<small>${esc(h.full)}</small></button>`).join('')});
 $('#nearRes').addEventListener('click',e=>{const b=e.target.closest('.res');if(b)setNear(nearHits[+b.dataset.i])});
 function drawNear(){if(nearMark){map.removeLayer(nearMark);nearMark=null}if(nearRing){map.removeLayer(nearRing);nearRing=null}if(!NEAR)return;
   nearMark=L.marker([NEAR.lat,NEAR.lng],{icon:L.divIcon({className:'',html:'<div class="nearpin"></div>',iconSize:[22,22]}),zIndexOffset:900}).bindPopup(esc(NEAR.label)).addTo(map);
   if(NEAR.r){nearRing=L.circle([NEAR.lat,NEAR.lng],{radius:NEAR.r*1000,className:'ring',interactive:false}).addTo(map);map.fitBounds(nearRing.getBounds(),{padding:[10,10]})}else map.setView([NEAR.lat,NEAR.lng],13)}
-function setNear(h){NEAR={lat:h.lat,lng:h.lng,label:h.label,r:+$('#nearR').value};$('#near').close();$('#sort').value='dist';drawNear();render();
-  const n=visible().length;toast(n?`${n} of your places within ${NEAR.r?NEAR.r+' km':'any distance'}`:`None of your places within ${NEAR.r} km. Try a bigger distance.`)}
+function setNear(h){NEAR={lat:h.lat,lng:h.lng,label:h.label,r:+$('#nearR').value,id:h.id||''};if($('#near').open)$('#near').close();$('#sort').value='dist';map.closePopup();drawNear();render();if(h.id)focusCard(h.id);
+  const n=visible().filter(r=>r.id!==NEAR.id).length;toast(n?`${n} of your places within ${NEAR.r?NEAR.r+' km':'any distance'} of ${NEAR.label}`:`None of your places within ${NEAR.r} km. Try a bigger distance.`)}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-near]');if(!a)return;e.preventDefault();const r=R.find(x=>x.id===a.dataset.near);if(r)setNear({lat:r.lat,lng:r.lng,label:r.name,id:r.id})});
 $('#nearR').addEventListener('change',()=>{if(!NEAR)return;NEAR.r=+$('#nearR').value;drawNear();render()});
 $('#nearClear').addEventListener('click',()=>{NEAR=null;drawNear();render();fit()});
 const LocCtl=L.Control.extend({options:{position:'bottomright'},onAdd(){const b=L.DomUtil.create('button','locbtn');b.type='button';b.setAttribute('aria-label','Show my location');b.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4" fill="currentColor"/><circle cx="12" cy="12" r="8"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg>';L.DomEvent.disableClickPropagation(b);L.DomEvent.on(b,'click',()=>locate(true));return b}});
