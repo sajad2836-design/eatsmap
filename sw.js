@@ -1,4 +1,4 @@
-const CACHE='eatsmap-v9';
+const CACHE='eatsmap-v10';
 const SHELL=['./','./index.html','./manifest.json','./leaflet.js','./leaflet.css','./icon-192.png','./icon-512.png','./starter.json','./offers.json','./ratings.json'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)));self.skipWaiting()});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))));self.clients.claim()});
