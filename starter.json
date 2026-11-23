@@ -299,7 +299,7 @@
 "web": "",
 "notes": "Biryani",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.1531,
 "lng": -114.2063
 },
@@ -331,7 +331,7 @@
 "web": "",
 "notes": "Best beef samosa. Also at 9036 46 St NE",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0308,
 "lng": -113.9811
 },
@@ -459,7 +459,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0341,
 "lng": -114.07118
 },
@@ -539,7 +539,7 @@
 "web": "",
 "notes": "Very famous and super busy. Take-out, sold by the slice too. Not everything is halal",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.1269,
 "lng": -114.0558
 },
@@ -571,7 +571,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.06652,
 "lng": -114.06658
 },
@@ -587,7 +587,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0711,
 "lng": -113.9441
 },
@@ -635,7 +635,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0551,
 "lng": -114.0857
 },
@@ -747,7 +747,7 @@
 "web": "",
 "notes": "Several locations",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0381,
 "lng": -113.9792
 },
@@ -795,7 +795,7 @@
 "web": "",
 "notes": "",
 "must": true,
-"tried": true,
+"tried": false,
 "lat": 51.1553,
 "lng": -114.0571
 },
@@ -827,7 +827,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0527,
 "lng": -114.0008
 },
@@ -859,7 +859,7 @@
 "web": "",
 "notes": "Several locations",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0667,
 "lng": -114.0678
 },
@@ -875,7 +875,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0376,
 "lng": -114.138
 },
@@ -891,7 +891,7 @@
 "web": "",
 "notes": "",
 "must": true,
-"tried": true,
+"tried": false,
 "lat": 51.0704,
 "lng": -114.0925
 },
@@ -907,7 +907,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.09864,
 "lng": -113.96545
 },
@@ -939,7 +939,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.07759,
 "lng": -114.00565
 },
@@ -955,7 +955,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0427,
 "lng": -114.0653
 },
@@ -1413,7 +1413,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.09868,
 "lng": -113.9524
 },
@@ -1429,7 +1429,7 @@
 "web": "",
 "notes": "Yemeni",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0377,
 "lng": -114.0863
 },
@@ -1461,7 +1461,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0381,
 "lng": -114.0866
 },
@@ -1477,7 +1477,7 @@
 "web": "",
 "notes": "Baklava",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.08994,
 "lng": -114.04765
 },
@@ -1509,7 +1509,7 @@
 "web": "",
 "notes": "",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.0382,
 "lng": -113.9626
 },
@@ -1541,7 +1541,7 @@
 "web": "",
 "notes": "",
 "must": true,
-"tried": true,
+"tried": false,
 "lat": 51.0403,
 "lng": -114.0713
 },
@@ -1557,7 +1557,7 @@
 "web": "",
 "notes": "Flame-grilled chicken",
 "must": false,
-"tried": true,
+"tried": false,
 "lat": 51.1693,
 "lng": -114.1453
 },
@@ -1953,7 +1953,7 @@
 "until": "",
 "phone": "",
 "web": "",
-"notes": "Near Yusuf Khan's house",
+"notes": "",
 "must": false,
 "tried": false,
 "lat": 51.10013,
@@ -1985,7 +1985,7 @@
 "until": "",
 "phone": "",
 "web": "",
-"notes": "Next to Panah; cheaper",
+"notes": "Cheaper option",
 "must": false,
 "tried": false,
 "lat": 51.1073,

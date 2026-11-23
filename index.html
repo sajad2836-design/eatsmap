@@ -180,8 +180,8 @@ input:focus,textarea:focus,.search:focus,button:focus-visible{outline:2px solid 
 </form></dialog>
 <dialog id="shareDlg"><div class="dlg">
   <h2>Share my list</h2>
-  <p class="hint" style="margin:0">Sends a link with your places, food types, Must try / Tried marks, offers and notes. The person opens it and taps <b>Add to my map</b>.</p>
-  <div class="checks" style="flex-direction:column;gap:12px"><label><input type="checkbox" id="shPrivate"> Include my private notes (liked / didn't like / other)</label><label><input type="checkbox" id="shFiltered"> Only the places showing now (current filters)</label></div>
+  <p class="hint" style="margin:0">Sends a link with your places, food types, Must try marks, offers and notes. Your private notes and Tried marks stay on your phone unless you tick the box. The person opens it and taps <b>Add to my map</b>.</p>
+  <div class="checks" style="flex-direction:column;gap:12px"><label><input type="checkbox" id="shPrivate"> Include my private notes and Tried marks</label><label><input type="checkbox" id="shFiltered"> Only the places showing now (current filters)</label></div>
   <div class="loc" id="shMsg"></div>
   <div class="foot"><button class="btn" id="shClose">Close</button><button class="btn pri" id="shGo">Share link</button></div>
 </div></dialog>
@@ -482,11 +482,11 @@ function sharePlace(r){const t=norm(r.type);const lines=[`${r.name} (${t})`,r.ad
 $('#mShareApp').addEventListener('click',()=>{menu.close();shareOrCopy({title:'EatsMap',text:'EatsMap: my favourite Calgary restaurants on a map, with food-type filters, deals and directions. Open it in Chrome, then ⋮ → Add to Home screen.',url:APPURL})});
 async function b64gz(str){const cs=new CompressionStream('gzip');const buf=await new Response(new Blob([str]).stream().pipeThrough(cs)).arrayBuffer();let bin='';const u=new Uint8Array(buf);for(let i=0;i<u.length;i+=8192)bin+=String.fromCharCode(...u.subarray(i,i+8192));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 async function unb64gz(s){s=s.replace(/-/g,'+').replace(/_/g,'/');while(s.length%4)s+='=';const bin=atob(s);const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return await new Response(new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'))).text()}
-const SHF=['id','name','type','address','lat','lng','notes','must','tried','offer','days','until','onDate','phone','web','offerSrc','offerChecked','offerLocked'];
+const SHF=['id','name','type','address','lat','lng','notes','must','offer','days','until','onDate','phone','web','offerSrc','offerChecked','offerLocked'];
 $('#mShareList').addEventListener('click',()=>{menu.close();$('#shMsg').textContent='';$('#shareDlg').showModal()});
 $('#shClose').addEventListener('click',()=>$('#shareDlg').close());
 $('#shGo').addEventListener('click',async()=>{const priv=$('#shPrivate').checked;const list=$('#shFiltered').checked?visible():R;
-  const keys=priv?[...SHF,'liked','disliked','myNotes']:SHF;
+  const keys=priv?[...SHF,'tried','liked','disliked','myNotes']:SHF;
   const data=list.map(r=>{const o={};for(const k of keys){const v=r[k];if(v!==undefined&&v!==''&&v!==false&&!(Array.isArray(v)&&!v.length))o[k]=v}return o});
   const m=$('#shMsg');m.className='loc';m.textContent='Preparing link…';
   try{const enc=await b64gz(JSON.stringify({v:1,n:data}));const url=APPURL+'#share='+enc;
@@ -525,9 +525,12 @@ async function loadStarter(force){try{if(!force&&localStorage.getItem(KEY+'.star
 $('#mReset').addEventListener('click',async()=>{const x=$('#mReset');if(x.dataset.sure!=='1'){x.dataset.sure='1';x.textContent='Tap again: this removes everything else saved on this phone';setTimeout(()=>{x.dataset.sure='';x.textContent='Start over: only the Calgary list'},4000);return}
   R=[];try{localStorage.removeItem(KEY);localStorage.removeItem(KEY+'.starter')}catch(e){}menu.close();await loadStarter(true);await loadOffers();await loadRatings();x.dataset.sure='';x.textContent='Start over: only the Calgary list';toast('Reset done: '+R.length+' places')});
 $('#mStarter').addEventListener('click',()=>{menu.close();loadStarter(true)});
+function migrate(){try{if(localStorage.getItem(KEY+'.mig1'))return;
+  for(const r of R){if((r.id==='c-madina-halal-meat-grocery'||r.id==='c-yyc-halal-meats')&&r.notes&&r.notes!=='Cheaper option'){r.myNotes=[r.myNotes,r.notes].filter(Boolean).join('. ');r.notes=r.id==='c-yyc-halal-meats'?'Cheaper option':''}}
+  localStorage.setItem(KEY+'.mig1','1');save()}catch(e){}}
 async function loadRatings(){try{const d=await(await fetch('ratings.json',{cache:'no-store'})).json();for(const r of R){const g=d[r.id];if(g){r.grating=g.rating;r.gcount=g.count;r.gchecked=g.checked}}save();render()}catch(e){}}
 async function loadOffers(){try{const d=await(await fetch('offers.json',{cache:'no-store'})).json();let n=0;for(const r of R){const o=d[r.id];if(r.offerLocked)continue;if(o){if(r.offer!==o.offer||r.offerSrc!==o.src)n++;Object.assign(r,{offer:o.offer,days:o.days||[],until:o.until||'',onDate:o.onDate||'',offerSrc:o.src||'',offerChecked:o.checked||''})}else if(r.offerSrc){Object.assign(r,{offer:'',days:[],until:'',onDate:'',offerSrc:'',offerChecked:''})}}save();render();if(n)toast(`Offers updated (${n})`)}catch(e){}}
-render();fit();loadStarter(false).then(loadOffers).then(loadRatings).then(checkIncoming);
+render();fit();loadStarter(false).then(migrate).then(loadOffers).then(loadRatings).then(checkIncoming);
 if(navigator.permissions)navigator.permissions.query({name:'geolocation'}).then(p=>{if(p.state==='granted')locate(!R.length)}).catch(()=>{});
 setInterval(render,10*60*1000); // refresh "deals today" across midnight
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
